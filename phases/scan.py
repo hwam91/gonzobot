@@ -100,23 +100,23 @@ def _build_search_queries(coverage_manifest: Dict) -> List[str]:
     regions = tier_1.get('regions', [])
 
     # Build queries for each region + key crops
-    # Avoid "production" since that's in the "not_in_ai" list
+    # News search can cover any topic - the question generator will filter to what Demeter can answer
     for region in regions[:3]:  # Top 3 regions
         region_name = region.get('name', '')
         crops = region.get('crops_mapped', [])
 
         if region_name and crops:
-            # Query for weather/climate/water (what Demeter CAN answer)
+            # Search for recent agricultural news
             for crop in crops[:2]:  # Top 2 crops per region
-                queries.append(f"{region_name} {crop} weather drought")
+                queries.append(f"{region_name} {crop} agriculture")
 
-    # Add general agricultural queries focused on what Demeter can answer
+    # Add general agricultural news queries
     queries.extend([
-        "California almond water drought 2025",
-        "olive oil Spain frost climate",
-        "California agriculture irrigation water",
-        "agriculture climate change weather",
-        "precision agriculture soil moisture"
+        "California almond harvest",
+        "olive oil production Mediterranean",
+        "California water agriculture",
+        "agriculture climate change",
+        "sustainable farming technology"
     ])
 
     return queries
