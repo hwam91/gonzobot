@@ -11,12 +11,12 @@ from playwright.async_api import async_playwright, Page, Browser, TimeoutError a
 logger = logging.getLogger(__name__)
 
 # DOM selectors for Demeter AI assistant
-# NOTE: These will need to be updated if the UI changes
+# Updated 2026-01-31 based on actual UI inspection
 SELECTORS = {
-    "chat_input": "textarea[placeholder*='Ask'], textarea[placeholder*='question'], input[type='text']",
-    "send_button": "button[type='submit'], button:has-text('Send')",
-    "response_container": ".message, .response, [class*='assistant'], [class*='response']",
-    "loading_indicator": ".loading, .spinner, [class*='loading']"
+    "chat_input": "textarea[placeholder='Reply...']",
+    "send_button": "button[type='submit']",
+    "loading_spinner": "svg",  # Spinner appears while loading
+    "main_content": "main"  # Main content area contains messages
 }
 
 
@@ -70,44 +70,16 @@ class DemeterAIBrowser:
             # Find and fill the chat input
             logger.info(f"Sending message: {message[:100]}...")
 
-            # Try to find the input field
-            input_field = None
-            for selector in SELECTORS["chat_input"].split(", "):
-                try:
-                    input_field = await self.page.wait_for_selector(selector, timeout=5000)
-                    if input_field:
-                        break
-                except:
-                    continue
-
-            if not input_field:
-                raise RuntimeError("Could not find chat input field")
-
+            # Wait for and fill the input field
+            input_field = await self.page.wait_for_selector(SELECTORS["chat_input"], timeout=10000)
             await input_field.fill(message)
             await asyncio.sleep(0.5)
 
-            # Try to find and click send button
-            send_button = None
-            for selector in SELECTORS["send_button"].split(", "):
-                try:
-                    send_button = await self.page.wait_for_selector(selector, timeout=5000)
-                    if send_button:
-                        break
-                except:
-                    continue
-
-            if send_button:
-                await send_button.click()
-            else:
-                # Fallback: press Enter
-                await input_field.press("Enter")
+            # Click the send button
+            send_button = await self.page.wait_for_selector(SELECTORS["send_button"], timeout=5000)
+            await send_button.click()
 
             logger.info("Message sent, waiting for response...")
-
-            # Wait for response to appear
-            # Strategy: wait for loading indicator to appear then disappear,
-            # or wait for new response container to appear
-            await asyncio.sleep(2)
 
             # Wait for response (with generous timeout)
             response_text = await self._wait_for_response()
@@ -129,48 +101,56 @@ class DemeterAIBrowser:
         Returns:
             The complete response text
         """
-        # Wait for response container to appear
-        await asyncio.sleep(3)
+        # Wait for the response to start appearing
+        await asyncio.sleep(5)
 
-        # Try multiple selectors to find response
-        response_selectors = [
-            "[data-role='assistant']",
-            ".assistant-message",
-            "[class*='assistant']",
-            ".message:last-child",
-            "[class*='response']:last-of-type"
-        ]
+        # Get the main content area
+        main_element = await self.page.query_selector(SELECTORS["main_content"])
+        if not main_element:
+            raise RuntimeError("Could not find main content area")
 
-        response_element = None
-        for selector in response_selectors:
-            try:
-                response_element = await self.page.query_selector(selector)
-                if response_element:
+        # Monitor the text content until it stops changing (response complete)
+        previous_text = ""
+        stable_count = 0
+        max_wait_iterations = 30  # 30 * 2 seconds = 60 seconds max
+
+        for i in range(max_wait_iterations):
+            current_text = await main_element.inner_text()
+
+            if current_text == previous_text:
+                stable_count += 1
+                if stable_count >= 3:  # Text hasn't changed for 6 seconds
                     break
-            except:
-                continue
+            else:
+                stable_count = 0
+                previous_text = current_text
 
-        if not response_element:
-            # Fallback: get all text from page and extract last message
-            logger.warning("Could not find specific response element, using fallback")
-            page_text = await self.page.inner_text("body")
-            # Return last substantial block of text
-            return page_text.strip()
+            await asyncio.sleep(2)
 
-        # Get text from response element
-        response_text = await response_element.inner_text()
+        # Extract just the assistant's response (everything after the question)
+        full_text = await main_element.inner_text()
 
-        # Wait a bit to ensure response is complete
-        # Check if text is still changing
-        await asyncio.sleep(2)
-        new_text = await response_element.inner_text()
+        # The response is everything after the first occurrence of the question
+        # Split on newlines and find where the response starts
+        lines = full_text.split('\n')
 
-        if new_text != response_text:
-            # Text is still updating, wait longer
-            await asyncio.sleep(5)
-            response_text = await response_element.inner_text()
+        # Look for the response content (skip the question which appears at the top)
+        # The response typically starts after the question line
+        response_lines = []
+        found_question = False
 
-        return response_text.strip()
+        for line in lines:
+            if found_question and line.strip():
+                response_lines.append(line)
+            elif not found_question and len(line) > 50:  # Question is typically long
+                found_question = True
+
+        if response_lines:
+            return '\n'.join(response_lines).strip()
+
+        # Fallback: return all text from main
+        logger.warning("Could not parse response cleanly, returning full text")
+        return full_text.strip()
 
     async def start_new_conversation(self):
         """Start a new conversation (refresh page or click new chat button)."""
