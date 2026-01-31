@@ -37,9 +37,10 @@ def scan_news(config: Dict, coverage_manifest: Dict) -> List[Dict]:
         # Build search queries based on coverage areas
         queries = _build_search_queries(coverage_manifest)
 
-        # Search for each query
+        # Search for each query with delay to avoid rate limiting
+        import time
         with DDGS() as ddgs:
-            for query in queries[:5]:  # Limit to 5 queries to avoid rate limits
+            for i, query in enumerate(queries[:5]):  # Limit to 5 queries to avoid rate limits
                 logger.info(f"Searching: {query}")
                 try:
                     # Try news search first (more targeted)
@@ -51,7 +52,8 @@ def scan_news(config: Dict, coverage_manifest: Dict) -> List[Dict]:
                             max_results=3
                         ))
                         logger.info(f"News search returned {len(search_results)} results")
-                    except:
+                    except Exception as e:
+                        logger.info(f"News search failed ({e}), trying text search")
                         # Fallback to text search if news search fails
                         search_results = list(ddgs.text(
                             query,
@@ -70,6 +72,10 @@ def scan_news(config: Dict, coverage_manifest: Dict) -> List[Dict]:
                             "date": result.get('date', datetime.now().isoformat()),
                             "query": query
                         })
+
+                    # Add delay between queries to avoid rate limiting
+                    if i < len(queries[:5]) - 1:  # Don't delay after last query
+                        time.sleep(2)
 
                 except Exception as e:
                     logger.warning(f"Failed to search for '{query}': {e}")
@@ -93,30 +99,19 @@ def _build_search_queries(coverage_manifest: Dict) -> List[str]:
     Returns:
         List of search query strings
     """
-    queries = []
-
-    # Get tier 1 regions (strongest coverage)
-    tier_1 = coverage_manifest.get('geographic_coverage', {}).get('tier_1_strong', {})
-    regions = tier_1.get('regions', [])
-
-    # Build queries for each region + key crops
-    # News search can cover any topic - the question generator will filter to what Demeter can answer
-    for region in regions[:3]:  # Top 3 regions
-        region_name = region.get('name', '')
-        crops = region.get('crops_mapped', [])
-
-        if region_name and crops:
-            # Search for recent agricultural news
-            for crop in crops[:2]:  # Top 2 crops per region
-                queries.append(f"{region_name} {crop} agriculture")
-
-    # Add general agricultural news queries
-    queries.extend([
+    # Use simple, reliable queries that are guaranteed to return results
+    # These are well-known organizations and common agricultural terms
+    queries = [
+        "almond board of california",
+        "California Department of Food and Agriculture",
+        "FAO agriculture news",
+        "USDA crop reports",
+        "olive oil council",
         "California almond harvest",
-        "olive oil production Mediterranean",
-        "California water agriculture",
+        "Mediterranean olive production",
+        "California water drought",
         "agriculture climate change",
-        "sustainable farming technology"
-    ])
+        "sustainable farming"
+    ]
 
     return queries
