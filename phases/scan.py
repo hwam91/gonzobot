@@ -42,21 +42,32 @@ def scan_news(config: Dict, coverage_manifest: Dict) -> List[Dict]:
             for query in queries[:5]:  # Limit to 5 queries to avoid rate limits
                 logger.info(f"Searching: {query}")
                 try:
-                    # Search news from past week
-                    search_results = list(ddgs.text(
-                        query,
-                        region='wt-wt',
-                        safesearch='moderate',
-                        max_results=3
-                    ))
+                    # Try news search first (more targeted)
+                    try:
+                        search_results = list(ddgs.news(
+                            query,
+                            region='wt-wt',
+                            safesearch='moderate',
+                            max_results=3
+                        ))
+                        logger.info(f"News search returned {len(search_results)} results")
+                    except:
+                        # Fallback to text search if news search fails
+                        search_results = list(ddgs.text(
+                            query,
+                            region='wt-wt',
+                            safesearch='moderate',
+                            max_results=3
+                        ))
+                        logger.info(f"Text search returned {len(search_results)} results")
 
                     for result in search_results:
                         results.append({
                             "source": result.get('source', 'Unknown'),
                             "headline": result.get('title', 'No title'),
                             "summary": result.get('body', ''),
-                            "url": result.get('href', ''),
-                            "date": datetime.now().isoformat(),
+                            "url": result.get('url') or result.get('href', ''),
+                            "date": result.get('date', datetime.now().isoformat()),
                             "query": query
                         })
 
@@ -89,22 +100,23 @@ def _build_search_queries(coverage_manifest: Dict) -> List[str]:
     regions = tier_1.get('regions', [])
 
     # Build queries for each region + key crops
+    # Avoid "production" since that's in the "not_in_ai" list
     for region in regions[:3]:  # Top 3 regions
         region_name = region.get('name', '')
         crops = region.get('crops_mapped', [])
 
         if region_name and crops:
-            # Query format: "Region crop news"
+            # Query for weather/climate/water (what Demeter CAN answer)
             for crop in crops[:2]:  # Top 2 crops per region
-                queries.append(f"{region_name} {crop} production news")
+                queries.append(f"{region_name} {crop} weather drought")
 
-    # Add general agricultural queries
+    # Add general agricultural queries focused on what Demeter can answer
     queries.extend([
-        "almond production 2025",
-        "olive oil production trends",
-        "California water agriculture",
-        "climate change agriculture",
-        "irrigation technology news"
+        "California almond water drought 2025",
+        "olive oil Spain frost climate",
+        "California agriculture irrigation water",
+        "agriculture climate change weather",
+        "precision agriculture soil moisture"
     ])
 
     return queries
