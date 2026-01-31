@@ -1,0 +1,126 @@
+# gonzo_config.yaml
+# Gonzo Bot Configuration
+# Last updated: 2025-01-31
+
+# ============================================================
+# OUTPUT TARGETS
+# ============================================================
+output:
+  daily_minimum:
+    twitter: 2
+    linkedin: 1
+  weekly:
+    blog_posts: 1
+
+# ============================================================
+# FORMAT MIX (percentages, sum to 100)
+# ============================================================
+format_mix:
+  data_snippet: 40
+  ranking_league_table: 30
+  deep_dive: 10
+  news_reactive: 10
+  question_to_audience: 10
+
+# ============================================================
+# ACTIVE EXPERIMENT (set null when inactive)
+# ============================================================
+active_experiment: null
+# Example:
+# active_experiment:
+#   name: "Rankings Sprint"
+#   start_date: 2025-02-01
+#   end_date: 2025-02-14
+#   format_mix_override:
+#     ranking_league_table: 50
+#     data_snippet: 25
+#     deep_dive: 10
+#     news_reactive: 10
+#     question_to_audience: 5
+
+# ============================================================
+# INTERACTION LIMITS
+# ============================================================
+interaction_limits:
+  max_exchanges_per_conversation: 8
+  max_conversations_per_run: 5
+
+# ============================================================
+# CHANNELS
+# ============================================================
+channels:
+  twitter:
+    max_characters: 280
+    max_thread_tweets: 4
+  linkedin:
+    max_characters: 3000
+  blog:
+    target_words: "800-1500"
+
+# ============================================================
+# BRAND
+# ============================================================
+brand:
+  colours:
+    primary_gold: "#E8C07D"
+    primary_dark_brown: "#47403F"
+    secondary_linen: "#F7EFE4"
+    secondary_light_blue: "#CADAE8"
+    white: "#FFFFFF"
+    text: "#1A1A1A"
+    chart_palette:
+      - "#47403F"
+      - "#E8C07D"
+      - "#CADAE8"
+      - "#8B7D6B"
+      - "#A3B8C8"
+      - "#D4C4A8"
+  font: "Roboto"
+  image_sizes:
+    twitter: [1200, 675]
+    linkedin: [1200, 1200]
+
+# ============================================================
+# PRIORITY ACCOUNTS TO MONITOR
+# Gonzo web-searches for recent activity from these
+# ============================================================
+priority_accounts:
+  linkedin:
+    - "FAO"
+    - "Rabobank Food & Agribusiness"
+    - "AgFunder"
+  twitter:
+    - "@FAO"
+    - "@USDAForeignAg"
+
+# ============================================================
+# DEMETER AI
+# ============================================================
+demeter_ai:
+  url: "https://assistant.demeterdata.ag"
+  response_timeout_seconds: 120
+  access_method: "playwright"
+
+# ============================================================
+# PUBLISHING QUEUE
+# ============================================================
+publishing:
+  service: "typefully"
+  api_key: ""
+  auto_schedule: false
+  default_status: "draft"
+
+# ============================================================
+# LOGGING
+# ============================================================
+logging:
+  runs_dir: "logs/runs"
+  capability_map: "logs/capability_map.json"
+  topics_covered: "logs/topics_covered.json"
+  weekly_synthesis_day: "Friday"
+
+# ============================================================
+# PERFORMANCE FEEDBACK (updated manually by marketing lead)
+# ============================================================
+performance_feedback:
+  location: "logs/performance_notes.txt"
