@@ -15,7 +15,7 @@ from services.charts import generate_chart
 logger = logging.getLogger(__name__)
 
 
-def generate(config: Dict, transcripts: List[Dict], run_id: str) -> List[Dict]:
+def generate(config: Dict, transcripts: List[Dict], run_id: str, assessments: Dict = None) -> List[Dict]:
     """
     Generate social media content from conversation transcripts.
 
@@ -23,6 +23,7 @@ def generate(config: Dict, transcripts: List[Dict], run_id: str) -> List[Dict]:
         config: Configuration dict from config.yaml
         transcripts: List of conversation transcripts from interrogate phase
         run_id: Unique run identifier for naming output files
+        assessments: Optional assessment results from response assessment phase
 
     Returns:
         List of posts ready for publishing, each with:
@@ -46,10 +47,22 @@ def generate(config: Dict, transcripts: List[Dict], run_id: str) -> List[Dict]:
     api = ClaudeAPI()
     model = config.get("claude_api", {}).get("models", {}).get("content_writing", "claude-sonnet-4-20250514")
 
+    # Filter transcripts based on assessments (if available)
+    transcripts_to_process = transcripts
+    if assessments and 'assessments' in assessments:
+        # Only process high-quality conversations (overall_score >= 6)
+        assessment_map = {a['conversation_id']: a for a in assessments['assessments']}
+        transcripts_to_process = [
+            t for t in transcripts
+            if t.get('conversation_id') in assessment_map
+            and assessment_map[t['conversation_id']].get('suitable_for_content', False)
+        ]
+        logger.info(f"Filtered to {len(transcripts_to_process)} high-quality transcripts based on assessments")
+
     all_posts = []
 
     # Process each transcript
-    for i, transcript in enumerate(transcripts):
+    for i, transcript in enumerate(transcripts_to_process):
         logger.info(f"Generating content for transcript {i+1}/{len(transcripts)}: {transcript.get('topic', 'Unknown')}")
 
         try:

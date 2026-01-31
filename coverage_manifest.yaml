@@ -1,49 +1,380 @@
 # coverage_manifest.yaml
-# What Demeter covers - Gonzo loads this at start of each run
-# Update as Demeter's coverage expands
-# Last updated: 2025-01-31
+# What Demeter AI (assistant.demeterdata.ag) actually knows about
+# Gonzo loads this at start of each run to plan questions
+# Last updated: 2026-01-31
+#
+# IMPORTANT USAGE NOTES FOR GONZO:
+# - The Demeter AI works best with SPECIFIC COORDINATES or specific places
+# - Rather than asking about "conditions in Bordeaux", ask about a specific
+#   lat/long, or ask it to take a representative sample of points across a region
+# - For agronomy queries, always provide coordinates or a named micro-region
+# - The AI can calculate metrics for custom date ranges (e.g. "GDDs in April 2024")
+# - Data resolution is ~31km (ERA5) for weather-derived metrics, finer for crop maps
+# - All agronomy data covers the past 10 years with averages, percentiles and std dev
 
-crops:
-  - almonds
-  - olives
-  - pistachios
-  - walnuts
-  - citrus
-  - avocados
-  - table_grapes
-  - wine_grapes
+# ============================================================================
+# DOMAINS: What the Demeter AI can answer questions about
+# These are the three domains currently accessible through the AI assistant
+# ============================================================================
 
-geographies:
-  - California
-  - Spain
-  - Portugal
-  - Italy
-  - Australia
-  - Chile
-  - Turkey
-  - Tunisia
+domains:
 
-data_types:
-  - production_volume
-  - acreage_and_plantings
-  - yield_per_acre
-  - water_availability_and_allocation
-  - cost_of_production
-  - price_trends
-  - trade_flows
-  - processing_infrastructure
-  - weather_and_growing_conditions
-  - investment_activity
+  agronomy:
+    description: >
+      Everything weather-derived. The AI can retrieve and analyse 10 years of
+      historical data for any coordinates on earth, including averages,
+      10th/90th percentiles and standard deviation. Also includes soil data
+      and climate projections to 2100. All temporal metrics can be calculated
+      for custom date ranges (e.g. "frost events in the first two weeks of March").
+    subcategories:
+      - name: growing_degree_days
+        description: "Annual GDD accumulation, base 5 and base 10. Custom date ranges supported."
+        source: ERA5
+      - name: precipitation
+        description: "Total annual precip, dry days count, custom date ranges."
+        source: ERA5
+      - name: winter_chill
+        description: "Chill hours and chill portions, hemisphere-adjusted seasonal calculation."
+        source: ERA5
+      - name: frost_risk
+        description: "Latest frost event per year (day of year), std dev, worst case in 10yr window. Frost = 1hr+ below -2C."
+        source: ERA5
+      - name: sunlight
+        description: "Total solar radiation in kWh/m2, annual and custom date ranges."
+        source: ERA5
+      - name: wind
+        description: "Annual mean wind speed in m/s, custom date ranges."
+        source: ERA5
+      - name: humidity
+        description: "Daytime and nighttime average relative humidity, annual and custom ranges."
+        source: ERA5
+      - name: temperature
+        description: "Monthly/annual max, min, median. 10yr averages, percentiles, std dev."
+        source: ERA5
+      - name: soil
+        description: "Composition, texture, organic carbon, pH, compaction at up to 250m resolution."
+        source: SoilGrids
+      - name: climate_classification
+        description: "Koeppen-Geiger climate type for any coordinates."
+        source: Demeter internal calculation
+      - name: climate_change_projections
+        description: "All standard metrics projected to 2100 under multiple CMIP6 scenarios."
+        source: "Demeter ensemble of climate models, resampled to 10km, interpolated to hourly"
+    # Agronomy is GLOBAL - works for any coordinates on earth
+    # Best used comparatively (benchmarking regions) not as absolute operating guide
+    # Cannot predict yield directly; cannot capture farm-level microclimate effects
 
-# Strongest coverage (prioritise for content)
-strengths:
-  - "California almonds: comprehensive acreage, yield, water, pricing"
-  - "DASI index: daily California almond conditions"
-  - "Spanish olives: production, pricing, export data"
-  - "Australian almonds: production and trade flows"
+  water_resources:
+    description: >
+      Where the water infrastructure is: irrigation schemes, aquifers, dams,
+      rivers, wells, water treatment plants. Also includes evapotranspiration
+      data for assessing irrigation intensity and reliability. Water data
+      identifies hard constraints and existential risks.
+    subcategories:
+      - name: irrigated_land
+        description: "Current and historical evapotranspiration. Estimates crop water consumption and irrigation reliability."
+        source: "Demeter internal ET models, regionally calibrated"
+      - name: irrigation_schemes
+        description: "Boundaries of formal schemes (reservoir, groundwater, canal). Many include pricing, limits, admin body."
+        source: "Various public and proprietary sources"
+      - name: dams_and_reservoirs
+        description: "Global dataset: capacity, height, year built, purpose."
+        source: Global Dam Watch
+      - name: aquifers
+        description: "Groundwater footprints with productivity, quality data. California includes GSAs and GSPs."
+        source: "Various public and proprietary sources"
+      - name: rivers
+        description: "All global rivers with catchment >10km2 or flow >0.1m3/s. Many include seasonality and flow rates."
+        source: HydroRIVERS
+      - name: water_treatment_plants
+        description: "Global locations with volume processed, discharge rates, populations served."
+        source: HydroWASTE
+      - name: wells_and_extraction_points
+        description: "Groundwater wells and surface extraction points. Depth, yield capacity, operational status where available."
+        source: Various
+    # Water infrastructure data is largely GLOBAL (dams, rivers, treatment plants)
+    # Irrigation scheme detail and ET data strongest in priority geographies
+    # ET should be used comparatively and directionally, NOT as absolute compliance measure
 
-# Known gaps (avoid or flag when encountered)
-known_gaps:
-  - "Turkish hazelnuts: limited data"
-  - "South American wine: partial coverage"
-  - "Processing cost breakdowns: sparse"
+  crop_maps:
+    description: >
+      What is planted where: field-level maps identifying crop type, field boundaries,
+      planted area, and planting year (for permanent crops). Specific on crop type
+      (says "almonds" not "orchards"). Some datasets enriched with density, variety,
+      irrigation status. Coverage is NOT global - it is geography-specific and
+      expanding. The AI can identify planted area, crop age cohorts, and basic
+      field characteristics where maps exist.
+    subcategories:
+      - name: field_boundaries
+        description: "Precise field outlines and planted area."
+        source: Demeter proprietary classification
+      - name: crop_identification
+        description: "Specific crop type at field level (almonds, pistachios, olives, etc.)."
+        source: Demeter proprietary classification
+      - name: crop_age
+        description: "Planting year for permanent crops. Enables age cohort analysis."
+        source: Demeter proprietary classification
+      - name: enriched_attributes
+        description: "Where available: planting density, variety, irrigation status."
+        source: Demeter proprietary classification
+      - name: crop_suitability
+        description: "Satellite-derived suitability scores by crop type based on soil, climate, topography."
+        source: Demeter internal models
+    # Crop maps are GEOGRAPHY-SPECIFIC - see geographic coverage below
+    # Best at micro-regional level and above, not for precise field-level area claims
+    # Cannot determine variety in most cases; cannot assess crop health
+    # Temporal resolution: quarterly to annual (sometimes 3-year)
+
+# ============================================================================
+# GEOGRAPHIC COVERAGE: Where the Demeter AI has data, by domain
+# ============================================================================
+
+geographic_coverage:
+
+  # AGRONOMY: Global coverage (ERA5 + SoilGrids = anywhere on earth)
+  # Climate projections also global
+  # The AI can answer agronomy questions for ANY coordinates
+  # Strongest analysis where combined with crop maps and water data
+
+  # WATER: Core infrastructure datasets are global (dams, rivers, treatment plants)
+  # Irrigation scheme detail and ET data varies by region
+
+  # CROP MAPS: This is where geographic coverage really matters
+  # Listed in order of coverage depth
+
+  tier_1_strong:
+    description: >
+      Comprehensive coverage across all three domains. Multiple crop types mapped
+      with age data. Good irrigation scheme and water infrastructure detail.
+      These are regions where the AI can support substantive multi-domain analysis.
+    regions:
+      - name: California
+        notes: >
+          Strongest overall coverage. Almonds, pistachios, walnuts, citrus, avocados,
+          grapes mapped. DASI index for almond growing conditions (daily updates).
+          Detailed water data including SGMA, GSAs, GSPs, water districts.
+          Cadastral data, pesticide application data. Processing infrastructure.
+        crops_mapped: [almonds, pistachios, walnuts, citrus, avocados, table_grapes, wine_grapes]
+        special_products: [DASI]
+
+      - name: Portugal
+        notes: >
+          Strong permanent crop coverage especially in Alentejo. Almonds, olives,
+          avocados, pistachios mapped 2020-2024 with planting year. HD/SHD density
+          classification for almonds. Irrigation scheme boundaries. Cadastral maps
+          available from open sources. CAP data used for training.
+        crops_mapped: [almonds, olives, avocados, pistachios]
+
+      - name: Spain
+        notes: >
+          Extensive coverage. 1.8M+ olive field polygons (largest dataset on platform).
+          Tree nut maps. Almond maps with age data (Aragon demonstrated for customers).
+          CAP data for training. Cadastral maps from open sources.
+          Geographic indications mapped.
+        crops_mapped: [olives, almonds, tree_nuts, wine_grapes]
+
+  tier_2_decent:
+    description: >
+      Good coverage in at least one domain, typically crop maps for key commodities.
+      Agronomy always available (global). Water infrastructure partially mapped.
+    regions:
+      - name: Chile
+        notes: >
+          Fruits and nuts crop map (recently fixed/updated Jan 2026). Almond farm maps
+          2023-2025 with variety, tree count, irrigation method. Strongest in
+          central valley permanent crops.
+        crops_mapped: [almonds, fruits, nuts]
+
+  tier_3_limited:
+    description: >
+      Some data available but thin. May have crop maps for specific commodities
+      only, or coverage from older/external datasets. Agronomy always works.
+    regions:
+      - name: Australia
+        notes: >
+          Some almond coverage. Murray-Darling Basin referenced in platform demos.
+        crops_mapped: [almonds]
+
+      - name: South_Africa
+        notes: >
+          Pecan and macadamia crop maps. Vaalharts Irrigation Scheme area.
+        crops_mapped: [pecans, macadamias]
+
+      - name: Netherlands
+        notes: >
+          Planted area maps added (referenced in Sep 2025 update). Limited detail.
+        crops_mapped: [various]
+
+      - name: Canada
+        notes: >
+          Annual Crop Inventory data from Agriculture Canada available.
+          Very limited integration with Demeter AI.
+        crops_mapped: [annual_crops]
+
+      - name: US_Midwest
+        notes: >
+          Some field-level soy and corn data prepared for demos (Rabobank).
+          Not deeply integrated into AI responses.
+        crops_mapped: [soy, corn]
+
+      - name: Italy
+        notes: >
+          Referenced in data sources but limited proprietary crop map coverage.
+          Geographic indications being mapped.
+        crops_mapped: []
+
+      - name: France
+        notes: >
+          Wine geographic indications mapped. Limited crop-level data beyond that.
+        crops_mapped: [wine_grapes_gi_only]
+
+  tier_4_agronomy_only:
+    description: >
+      The Demeter AI can answer agronomy questions (weather, soil, climate) for
+      ANY location on earth. For regions not listed above, that is all it can do.
+      No crop maps, limited or no water infrastructure detail beyond global datasets.
+      Still useful for benchmarking, suitability analysis, and climate comparison.
+    examples:
+      - "Turkey, Tunisia, Morocco, Greece - no proprietary crop maps"
+      - "East Africa, Southeast Asia, India - agronomy only"
+      - "Eastern Europe, UK - agronomy only (some UK data for Savills demo)"
+      - "Any other coordinates worldwide - agronomy always works"
+
+# ============================================================================
+# WHAT THE AI CANNOT CURRENTLY DO
+# Gonzo must avoid asking questions in these domains
+# ============================================================================
+
+not_in_ai:
+  - name: production_volumes
+    note: "No aggregate production statistics. Use FAO/USDA for this."
+  - name: price_data
+    note: "No commodity prices, sale prices, or price history in the AI."
+  - name: cost_of_production
+    note: "Operating pro formas exist in Demeter platform but not exposed to AI."
+  - name: trade_flows
+    note: "No import/export data. Use UN Comtrade or USDA FAS."
+  - name: processing_infrastructure
+    note: "Processing facility maps exist in platform but limited AI access."
+  - name: investment_activity
+    note: "Investor database exists in platform but not exposed to AI."
+  - name: financial_analysis
+    note: "No tariffs, subsidies, or financial modelling capability in AI."
+  - name: value_chain_logistics
+    note: "Ports and road network data in platform but limited AI exposure."
+  - name: boundaries_and_cadastres
+    note: "Administrative boundaries, cadastral maps exist but limited AI exposure."
+  - name: farming_practices
+    note: "Tillage, cover cropping, rotation data exists but limited AI exposure."
+
+# ============================================================================
+# QUESTION STRATEGY FOR GONZO
+# How to get the best answers from the Demeter AI
+# ============================================================================
+
+question_strategy:
+
+  always_do:
+    - "Provide specific coordinates (lat/long) rather than broad region names"
+    - "Ask the AI to take a representative sample of points across a region"
+    - "Specify date ranges for temporal queries (e.g. 'GDDs from March 1 to May 31')"
+    - "Ask comparative questions: 'How does X compare to Y for winter chill?'"
+    - "Use the crop suitability framing: 'Assess suitability for pistachios at these coordinates'"
+    - "Ask about specific agronomic events: 'Were there frost events after March 15 in 2024?'"
+    - "Frame climate change questions with specific timeframes: 'projected GDDs in 2050 vs today'"
+
+  never_do:
+    - "Ask for commodity prices or production statistics (not in the AI)"
+    - "Ask about processing infrastructure locations (not reliably in AI)"
+    - "Ask for financial analysis, cost models, or investment returns"
+    - "Ask about crop maps in regions where we have no coverage (see tier_4)"
+    - "Expect field-level precision from agronomy data (micro-regional is the right scale)"
+    - "Ask for yield predictions (agronomy data cannot predict yield directly)"
+
+  high_value_question_types:
+    - type: "agronomic_benchmarking"
+      example: "Compare winter chill accumulation at [coords_A] vs [coords_B] over the past 10 years"
+      domains: [agronomy]
+      works_everywhere: true
+
+    - type: "crop_suitability_assessment"
+      example: "Assess suitability for almonds at these 5 coordinates based on GDDs, chill, frost risk, and soil"
+      domains: [agronomy]
+      works_everywhere: true
+
+    - type: "climate_trend_analysis"
+      example: "How has GDD accumulation changed over the past 10 years at [coords]? Is there a trend?"
+      domains: [agronomy]
+      works_everywhere: true
+
+    - type: "climate_projection_comparison"
+      example: "Compare projected 2050 winter chill at [coords] vs historical average. Risk of insufficient chill?"
+      domains: [agronomy]
+      works_everywhere: true
+
+    - type: "water_infrastructure_mapping"
+      example: "What irrigation schemes serve the area around [coords]? What are the water sources?"
+      domains: [water_resources]
+      works_everywhere: false
+      best_in: [California, Portugal, Spain]
+
+    - type: "crop_age_cohort_analysis"
+      example: "What is the age distribution of almond orchards within 50km of [coords] in Portugal?"
+      domains: [crop_maps]
+      works_everywhere: false
+      best_in: [California, Portugal, Spain, Chile]
+
+    - type: "planted_area_change"
+      example: "How has the planted area of olives changed in [region] between 2020 and 2024?"
+      domains: [crop_maps]
+      works_everywhere: false
+      best_in: [Spain, Portugal]
+
+    - type: "cross_domain_analysis"
+      example: "For almond orchards near [coords], what are the agronomic conditions and water sources?"
+      domains: [agronomy, water_resources, crop_maps]
+      works_everywhere: false
+      best_in: [California, Portugal, Spain]
+
+    - type: "extreme_event_forensics"
+      example: "Were there any frost events after February 15 in 2024 at [coords]? How does that compare to the 10yr average?"
+      domains: [agronomy]
+      works_everywhere: true
+
+    - type: "representative_sample"
+      example: "Take a representative sample of 10 points across the Sacramento Valley and compare their GDD profiles"
+      domains: [agronomy]
+      works_everywhere: true
+
+# ============================================================================
+# CONTENT GENERATION GUIDANCE
+# Which topics produce the best Gonzo Bot content
+# ============================================================================
+
+content_priorities:
+
+  tier_1_daily_material:
+    description: "Topics where Demeter AI gives rich, specific, chartable answers"
+    topics:
+      - "California almond growing conditions (DASI + agronomy)"
+      - "Iberian permanent crop expansion and age profiles"
+      - "Cross-regional agronomic benchmarking (e.g. chill in Spain vs California)"
+      - "Climate change impact on specific crops in specific places"
+      - "Frost risk analysis for current/recent seasons"
+      - "Water resource comparison between irrigation districts"
+
+  tier_2_weekly_material:
+    description: "Topics that need more framing but produce strong content"
+    topics:
+      - "Crop suitability analysis for emerging regions"
+      - "Chilean permanent crop landscape"
+      - "South African pecan/macadamia geography"
+      - "Climate projection deep dives (2050 scenarios)"
+      - "Soil quality comparison across production regions"
+
+  tier_3_supplemented:
+    description: "Topics where Demeter data is partial; supplement with web search or FAO"
+    topics:
+      - "Global production context (FAO data + Demeter regional detail)"
+      - "Trade flow implications (external data + Demeter crop maps)"
+      - "Processing infrastructure bottlenecks (platform data limited in AI)"

@@ -19,7 +19,8 @@ def log_run(
     scan_results: List[Dict],
     transcripts: List[Dict],
     posts: List[Dict],
-    publishing_summary: Dict
+    publishing_summary: Dict,
+    assessments: Dict = None
 ) -> str:
     """
     Log a complete run to JSON file.
@@ -31,6 +32,7 @@ def log_run(
         transcripts: Conversation transcripts from interrogate phase
         posts: Generated posts from generate phase
         publishing_summary: Publishing results summary
+        assessments: Optional assessment results from response assessment
 
     Returns:
         Path to the log file
@@ -48,6 +50,7 @@ def log_run(
         },
         "scan_results": scan_results,
         "transcripts": transcripts,
+        "assessments": assessments,
         "posts": posts,
         "publishing_summary": publishing_summary,
         "stats": {
