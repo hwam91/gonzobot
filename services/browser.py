@@ -75,8 +75,12 @@ class DemeterAIBrowser:
             await input_field.fill(message)
             await asyncio.sleep(0.5)
 
-            # Click the send button
-            send_button = await self.page.wait_for_selector(SELECTORS["send_button"], timeout=5000)
+            # Wait for the send button to be enabled (not disabled)
+            send_button = await self.page.wait_for_selector(
+                f"{SELECTORS['send_button']}:not([disabled])",
+                timeout=10000,
+                state="attached"
+            )
             await send_button.click()
 
             logger.info("Message sent, waiting for response...")
