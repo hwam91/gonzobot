@@ -1,0 +1,49 @@
+# coverage_manifest.yaml
+# What Demeter covers - Gonzo loads this at start of each run
+# Update as Demeter's coverage expands
+# Last updated: 2025-01-31
+
+crops:
+  - almonds
+  - olives
+  - pistachios
+  - walnuts
+  - citrus
+  - avocados
+  - table_grapes
+  - wine_grapes
+
+geographies:
+  - California
+  - Spain
+  - Portugal
+  - Italy
+  - Australia
+  - Chile
+  - Turkey
+  - Tunisia
+
+data_types:
+  - production_volume
+  - acreage_and_plantings
+  - yield_per_acre
+  - water_availability_and_allocation
+  - cost_of_production
+  - price_trends
+  - trade_flows
+  - processing_infrastructure
+  - weather_and_growing_conditions
+  - investment_activity
+
+# Strongest coverage (prioritise for content)
+strengths:
+  - "California almonds: comprehensive acreage, yield, water, pricing"
+  - "DASI index: daily California almond conditions"
+  - "Spanish olives: production, pricing, export data"
+  - "Australian almonds: production and trade flows"
+
+# Known gaps (avoid or flag when encountered)
+known_gaps:
+  - "Turkish hazelnuts: limited data"
+  - "South American wine: partial coverage"
+  - "Processing cost breakdowns: sparse"

@@ -1,0 +1,19 @@
+# Gonzo Bot Dependencies
+
+# Anthropic Claude API
+anthropic>=0.40.0
+
+# Browser automation
+playwright>=1.48.0
+
+# Data visualization
+matplotlib>=3.9.0
+
+# YAML configuration
+pyyaml>=6.0.2
+
+# Web search (for Phase 1+)
+duckduckgo-search>=6.3.0
+
+# HTTP requests (for Phase 1.5+ FAO integration and Phase 2+ publishing)
+requests>=2.32.0
