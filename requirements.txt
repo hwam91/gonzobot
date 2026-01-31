@@ -17,3 +17,6 @@ duckduckgo-search>=6.3.0
 
 # HTTP requests (for Phase 1.5+ FAO integration and Phase 2+ publishing)
 requests>=2.32.0
+
+# Environment variables
+python-dotenv>=1.0.0

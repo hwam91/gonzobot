@@ -19,6 +19,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 import yaml
+from dotenv import load_dotenv
 
 # Import phases
 from phases.scan import scan_news
@@ -55,6 +56,9 @@ def load_coverage_manifest(manifest_path: str = "coverage_manifest.yaml") -> dic
 
 def main():
     """Main orchestrator function."""
+    # Load environment variables from .env file
+    load_dotenv()
+
     logger = logging.getLogger(__name__)
 
     logger.info("="*80)
