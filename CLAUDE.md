@@ -28,18 +28,17 @@ gonzo/
 ├── coverage_manifest.yaml         # What Demeter covers (crops, geos, data types)
 ├── orchestrator.py                # Main entry point - cron calls this
 ├── phases/
-│   ├── scan.py                    # Phase 1: Web search for news + priority accounts
+│   ├── scan.py                    # DEPRECATED - now using Anthropic Web Search
 │   ├── interrogate.py             # Phase 2: Playwright browser automation with Demeter AI
 │   ├── generate.py                # Phase 3: Claude API - assessment + content generation
 │   └── log.py                     # Phase 4: Persistent logging + capability map
 ├── services/
-│   ├── claude_api.py              # Anthropic API wrapper (question gen, assessment, content)
+│   ├── claude_api.py              # Anthropic API wrapper (question gen w/ web search, assessment, content)
 │   ├── browser.py                 # Playwright automation for Demeter AI conversations
 │   ├── publishing.py              # Typefully/Buffer API client for draft queue
-│   ├── web_search.py              # DuckDuckGo or similar for news scanning
 │   └── charts.py                  # Matplotlib chart generation with brand specs
 ├── prompts/
-│   ├── question_generator.txt     # Given scan + coverage, generate conversation plans
+│   ├── question_generator.txt     # Search web + generate conversation plans (Sonnet w/ web search)
 │   ├── response_assessor.txt      # Rate Demeter AI responses, identify gaps (cheap model)
 │   ├── content_writer.txt         # Turn transcripts into posts + chart specs (good model)
 │   └── weekly_synthesis.txt       # Summarise week's logs (cheap model)
@@ -64,21 +63,23 @@ orchestrator.py
     ├── 1. Load config.yaml, coverage_manifest.yaml
     ├── 2. Load recent logs, capability_map.json, topics_covered.json
     │
-    ├── 3. PHASE 1: scan.py
-    │      Web search for:
-    │      - Agricultural news relevant to coverage areas
-    │      - Recent posts from priority accounts (config.yaml)
-    │      - Data releases (USDA, CDFA, etc.)
-    │      Output: [{source, headline, summary, url, date}]
-    │      No LLM needed. Pure web search + parsing.
-    │
-    ├── 4. CLAUDE API CALL #1: Question Generation
+    ├── 3. CLAUDE API CALL #1: Question Generation (with Web Search)
     │      Model: claude-sonnet-4-20250514
-    │      Input: scan results + coverage manifest + recent topics + capability map + config
-    │      Output: 5 conversation plans, each with topic, opening question, follow-ups
-    │      Prompt: prompts/question_generator.txt
+    │      Tools: web_search_20250305 (Anthropic Web Search API via Brave)
     │
-    ├── 5. PHASE 2: interrogate.py
+    │      Claude autonomously:
+    │      - Searches for recent agricultural news in coverage areas
+    │      - Reads full articles (not just headlines)
+    │      - Follows leads with additional searches
+    │      - Synthesizes information from multiple sources
+    │      - Generates conversation plans based on research
+    │
+    │      Input: coverage manifest + recent topics + config
+    │      Output: 3-5 conversation plans with topic, opening question, follow-ups
+    │      Prompt: prompts/question_generator.txt
+    │      Cost: ~5-10 searches @ $10/1000 = ~$0.10 per run
+    │
+    ├── 4. PHASE 2: interrogate.py
     │      For each conversation plan:
     │        - Playwright opens assistant.demeterdata.ag
     │        - Types opening question, waits for response (LONG timeouts - assistant can be slow)
@@ -88,13 +89,13 @@ orchestrator.py
     │      Output: [{conversation_id, topic, exchanges: [{question, response}]}]
     │      No LLM needed. Pure browser automation.
     │
-    ├── 6. CLAUDE API CALL #2: Response Assessment
+    ├── 5. CLAUDE API CALL #2: Response Assessment
     │      Model: claude-haiku-4-5-20251001 (cheap, this is classification)
     │      Input: conversation transcripts
     │      Output: quality ratings, strengths, weaknesses, data gaps per conversation
     │      Prompt: prompts/response_assessor.txt
     │
-    ├── 6.5 [PHASE 1.5] FAO ENRICHMENT (when available)
+    ├── 5.5 [PHASE 1.5] FAO ENRICHMENT (when available)
     │      For each assessed conversation:
     │        - If global context would strengthen it → formulate FAO query
     │        - If Demeter AI had gaps the FAO might cover → formulate FAO query
@@ -103,23 +104,23 @@ orchestrator.py
     │      Note: Skipped if Vanna/FAO not configured. Becomes redundant if FAO
     │      data is ingested into Demeter platform directly.
     │
-    ├── 7. CLAUDE API CALL #3: Content Generation
+    ├── 6. CLAUDE API CALL #3: Content Generation
     │      Model: claude-sonnet-4-20250514 (needs to write well)
     │      Input: transcripts + assessments + FAO context (if available) + scan context + config
     │      Output: channel-ready posts + chart specifications (JSON for charts.py)
     │      Prompt: prompts/content_writer.txt
     │
-    ├── 8. CHART GENERATION: charts.py
+    ├── 7. CHART GENERATION: charts.py
     │      For each chart spec from API call #3:
     │        - Matplotlib renders with brand colours (config.yaml)
     │        - Saves to output/charts/
     │      No LLM needed.
     │
-    ├── 9. PUBLISH: publishing.py
+    ├── 8. PUBLISH: publishing.py
     │      Push each post + chart image to Typefully (or Buffer) as draft
     │      All drafts. Human approves/kills from Typefully UI.
     │
-    └── 10. LOG: log.py
+    └── 9. LOG: log.py
            - Write run log to logs/runs/
            - Update capability_map.json with new ratings
            - Update topics_covered.json
@@ -152,10 +153,18 @@ Gonzo needs memory between runs to:
 
 JSON files on disk are fine for v1. No database needed.
 
-### Web search for news scanning
-Use DuckDuckGo search (free, no API key needed, Claude Code has used this before). No paid news API. Gonzo searches for recent news matching coverage areas and checks priority account activity. This is the first thing that runs each cycle, feeding into question generation.
+### Anthropic Web Search for news research
+**Current implementation (Phase 1):** Uses Anthropic's native web search capability (`web_search_20250305` tool) during question generation. Claude autonomously researches agricultural news, reads full articles, follows leads, and synthesizes information before generating conversation plans.
 
-Future upgrade: investigate whether a news/social monitoring service exists that aggregates LinkedIn posts, tweets, and email newsletters into a single feed. For v1, web search is sufficient.
+**Benefits over DuckDuckGo scan approach:**
+- Claude reads full articles, not just headlines/snippets
+- Agentic behavior: Claude decides what to search and follows leads
+- No separate scan phase needed - simpler architecture
+- No rate limiting issues
+- Better question quality from fuller context
+- Cost: ~$0.10 per run (~5-10 searches @ $10/1000)
+
+**Future upgrade for Phase 3+:** Priority account monitoring (LinkedIn/Twitter) could be added as a separate scan phase to surface posts from key industry voices (FAO, USDA, Almond Board, etc.). This would complement Claude's autonomous news research.
 
 ## Roadmap
 
@@ -173,13 +182,14 @@ Chart generation is included in the MVP because it's the highest-leverage automa
 
 Success = you can run `python orchestrator.py` and get a LinkedIn post draft + branded chart image saved to output/, based on a real conversation with the Demeter AI.
 
-### Phase 1: Core Loop
-- scan.py does real web searches (DuckDuckGo) for ag news
+### Phase 1: Core Loop ✅ COMPLETE
+- Question generation uses Anthropic Web Search to autonomously research news
 - interrogate.py handles multiple conversations with proper error handling and timeouts
+- Response assessment filters out low-quality conversations before content generation
 - generate.py produces posts for Twitter AND LinkedIn with chart specifications
 - Multiple chart types supported (horizontal bar, line, table)
 - log.py maintains capability_map.json and topics_covered.json across runs
-- Question generation uses scan results + logs to plan conversations
+- Charts render with full brand specifications
 
 Success = daily cron produces 2 Twitter drafts + 1 LinkedIn draft with charts, saved to output/ directory.
 
@@ -647,14 +657,16 @@ The assistant can be SLOW. Use timeouts of 120+ seconds. Build retry logic. If a
 
 The exact DOM selectors will need to be determined by inspecting assistant.demeterdata.ag. This is the most brittle part of the system. If the UI changes, selectors break. Keep selector definitions in one place (browser.py) for easy updates.
 
-### DuckDuckGo search for news
-Use the `duckduckgo-search` Python package. Search for recent news on coverage topics. Parse results into structured format. No API key needed.
+### Anthropic Web Search integration
+**Enabled in Phase 1.** The question generation API call includes `tools=[{"type": "web_search_20250305"}]`, which gives Claude access to Brave Search via Anthropic's web search tool.
 
-Example queries:
-- "California almond production 2025"
-- "USDA crop report latest"
-- "FAO agriculture report"
-- "olive oil Spain production"
+**How it works:**
+1. `prompts/question_generator.txt` instructs Claude to search for recent agricultural news before generating conversation plans
+2. Claude autonomously decides what to search for, reads full articles, and follows leads
+3. Web search results inform conversation plan generation
+4. Each search costs ~$0.01 (part of $10/1000 searches pricing)
+
+**No separate news scan phase needed.** The deprecated `phases/scan.py` (DuckDuckGo implementation) is retained in codebase for reference but not used.
 
 ### Typefully API
 Typefully has a REST API for creating drafts. Verify:
@@ -671,11 +683,18 @@ If Typefully API is insufficient, Buffer is the fallback. Both support programma
 - Weekly synthesis: claude-haiku-4-5-20251001 (summarisation, keep cheap)
 
 ### Cost estimation
-Per daily run (rough):
-- 1 Sonnet call for question generation (~2K input, ~1K output)
-- 1 Haiku call for assessment (~3K input, ~500 output)
-- 1 Sonnet call for content generation (~4K input, ~2K output)
-- Total: ~$0.05-0.10 per run, ~$1.50-3.00 per month
-- Plus occasional Haiku calls for weekly synthesis
+Per daily run (Phase 1):
+- 1 Sonnet call for question generation (~2K input, ~1K output): ~$0.01
+- Web search (5-10 searches @ $10/1000): ~$0.10
+- 1 Haiku call for assessment (~3K input, ~500 output): ~$0.005
+- 1 Sonnet call for content generation (~4K input, ~2K output): ~$0.02
+- **Total: ~$0.13-0.15 per run, ~$4-5 per month**
+- Plus occasional Haiku calls for weekly synthesis: ~$0.005 each
 
-This is negligible.
+The web search adds ~$3/month vs the old DuckDuckGo approach, but delivers significantly better output quality through:
+- Full article context instead of headline snippets
+- Agentic research behavior (Claude follows leads)
+- No rate limiting issues
+- Simpler architecture (one less phase)
+
+This cost is negligible for the value delivered.
