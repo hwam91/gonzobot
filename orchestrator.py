@@ -4,11 +4,12 @@ Gonzo Bot Orchestrator
 
 Main entry point for the autonomous content engine.
 Runs all phases in sequence:
-1. Scan for news (stub in Phase 0)
+1. Generate conversation plans (Claude API with web search)
 2. Interrogate Demeter AI
-3. Generate content with Claude API
-4. Publish (stub in Phase 0 - saves to output/)
-5. Log results
+3. Assess response quality (Claude API)
+4. Generate content (Claude API)
+5. Publish (saves to output/)
+6. Log results
 
 Usage:
     python orchestrator.py
@@ -22,7 +23,7 @@ import yaml
 from dotenv import load_dotenv
 
 # Import phases
-from phases.scan import scan_news
+# from phases.scan import scan_news  # Deprecated - now using Anthropic Web Search
 from phases.interrogate import interrogate
 from phases.generate import generate
 from phases.log import log_run
@@ -62,7 +63,7 @@ def main():
     logger = logging.getLogger(__name__)
 
     logger.info("="*80)
-    logger.info("GONZO BOT - Phase 1")
+    logger.info("GONZO BOT - Phase 1 (Anthropic Web Search)")
     logger.info("="*80)
 
     # Generate run ID
@@ -86,13 +87,8 @@ def main():
             if t.get('topic')
         ]
 
-        # PHASE 1: Scan for news
-        logger.info("\n[PHASE 1] Scanning for news...")
-        scan_results = scan_news(config, coverage_manifest)
-        logger.info(f"Scan complete: {len(scan_results)} items found")
-
-        # PHASE 1.5: Generate conversation plans with Claude API
-        logger.info("\n[PHASE 1.5] Generating conversation plans...")
+        # PHASE 1: Generate conversation plans with Claude API (web search enabled)
+        logger.info("\n[PHASE 1] Generating conversation plans with web search...")
         from services.claude_api import ClaudeAPI
         api = ClaudeAPI()
         num_conversations = min(
@@ -101,10 +97,11 @@ def main():
             config.get('output', {}).get('daily_minimum', {}).get('twitter', 2)
         )
 
+        # Note: scan_results parameter is now deprecated - Claude uses web search instead
         conversation_plans = api.generate_questions(
             config=config,
             coverage_manifest=coverage_manifest,
-            scan_results=scan_results,
+            scan_results=[],  # Empty - Claude will search the web autonomously
             recent_topics=recent_topics,
             num_conversations=num_conversations
         )
@@ -141,7 +138,7 @@ def main():
 
         # PHASE 4b: Log
         logger.info("\n[PHASE 4b] Logging run...")
-        log_file = log_run(run_id, config, scan_results, transcripts, posts, publishing_summary, assessments)
+        log_file = log_run(run_id, config, [], transcripts, posts, publishing_summary, assessments)  # scan_results now empty
         logger.info(f"Log written to: {log_file}")
 
         # Summary

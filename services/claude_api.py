@@ -168,7 +168,7 @@ LinkedIn: max {channels.get('linkedin', {}).get('max_characters', 3000)} charact
         Args:
             config: Configuration dict
             coverage_manifest: Coverage manifest dict
-            scan_results: Recent news/scan results
+            scan_results: Recent news/scan results (deprecated - web search used instead)
             recent_topics: Recently covered topics (to avoid repetition)
             num_conversations: Number of conversation plans to generate
             model: Claude model to use
@@ -176,7 +176,7 @@ LinkedIn: max {channels.get('linkedin', {}).get('max_characters', 3000)} charact
         Returns:
             List of conversation plans with topics, questions, and follow-ups
         """
-        logger.info(f"Generating {num_conversations} conversation plans with {model}")
+        logger.info(f"Generating {num_conversations} conversation plans with {model} (web search enabled)")
 
         # Load the question generator prompt
         from pathlib import Path
@@ -193,6 +193,7 @@ LinkedIn: max {channels.get('linkedin', {}).get('max_characters', 3000)} charact
             response = self.client.messages.create(
                 model=model,
                 max_tokens=4096,
+                tools=[{"type": "web_search_20250305"}],  # Enable web search
                 messages=[
                     {"role": "user", "content": prompt}
                 ]
