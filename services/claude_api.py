@@ -193,7 +193,11 @@ LinkedIn: max {channels.get('linkedin', {}).get('max_characters', 3000)} charact
             response = self.client.messages.create(
                 model=model,
                 max_tokens=4096,
-                tools=[{"type": "web_search_20250305"}],  # Enable web search
+                tools=[{
+                    "type": "web_search_20250305",
+                    "name": "web_search",
+                    "max_uses": 10
+                }],  # Enable web search
                 messages=[
                     {"role": "user", "content": prompt}
                 ]
